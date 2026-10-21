@@ -522,6 +522,21 @@
       color: #000;
     }
 
+    .ticket-container.size-58mm-scaled {
+      width: 320px !important;
+      padding: 16px 14px !important;
+      font-size: 13px !important;
+      zoom: 0.73;
+      transform: scale(0.73);
+      transform-origin: top center;
+    }
+
+    @supports (zoom: 0.73) {
+      .ticket-container.size-58mm-scaled {
+        transform: none;
+      }
+    }
+
     .ticket-container.size-58mm {
       width: 250px;
       padding: 10px 8px;
@@ -715,7 +730,6 @@
     /* THERMAL PRINT MEDIA QUERY */
     @media print {
       @page {
-        size: 80mm auto;
         margin: 0;
       }
       html, body {
@@ -739,11 +753,28 @@
         box-shadow: none;
         background: transparent;
         width: 100%;
+        display: block;
       }
       .ticket-container {
         border: none !important;
         width: 100% !important;
+        max-width: 320px !important;
         padding: 4mm 3mm !important;
+        box-sizing: border-box !important;
+      }
+      .ticket-container.size-58mm-scaled {
+        width: 320px !important;
+        max-width: 320px !important;
+        padding: 16px 14px !important;
+        font-size: 13px !important;
+        zoom: 0.73 !important;
+        margin: 0 !important;
+      }
+      .ticket-container.size-58mm {
+        width: 250px !important;
+        max-width: 250px !important;
+        padding: 2mm !important;
+        font-size: 11px !important;
       }
     }
   </style>
@@ -820,8 +851,9 @@
         <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
           <span>Ancho de Rollo:</span>
           <div class="thermal-size-tabs">
-            <button class="thermal-size-btn active" id="btn-size-80mm" onclick="setThermalWidth(80)">80 mm</button>
-            <button class="thermal-size-btn" id="btn-size-58mm" onclick="setThermalWidth(58)">58 mm</button>
+            <button class="thermal-size-btn active" id="btn-size-80mm" onclick="setThermalWidth('80')">80 mm</button>
+            <button class="thermal-size-btn" id="btn-size-58mm-scaled" onclick="setThermalWidth('58-scaled')">58 mm Escalado</button>
+            <button class="thermal-size-btn" id="btn-size-58mm" onclick="setThermalWidth('58')">58 mm Compacto</button>
           </div>
         </div>
       </div>
@@ -1092,6 +1124,24 @@
     padding: 16px 14px;
     box-sizing: border-box;
   }
+  .ticket-container.size-58mm-scaled {
+    width: 320px !important;
+    padding: 16px 14px !important;
+    font-size: 13px !important;
+    zoom: 0.73;
+    transform: scale(0.73);
+    transform-origin: top center;
+  }
+  @supports (zoom: 0.73) {
+    .ticket-container.size-58mm-scaled {
+      transform: none;
+    }
+  }
+  .ticket-container.size-58mm {
+    width: 250px !important;
+    padding: 10px 8px !important;
+    font-size: 11px !important;
+  }
   .header-bloque {
     display: flex;
     align-items: center;
@@ -1208,6 +1258,7 @@
     let modoMonto = "azar";
     let totalActual = 352.00;
     let thermalWidthMm = 80;
+    let thermalWidthMode = '80';
     let servidorDisponible = false;
     let impresoraSeleccionada = "browser";
     let productosActuales = [];
@@ -1261,20 +1312,36 @@
     }
 
     // Configurar Ancho de Rollo Térmico
-    function setThermalWidth(mm) {
-      thermalWidthMm = mm;
-      document.getElementById('btn-size-80mm').classList.toggle('active', mm === 80);
-      document.getElementById('btn-size-58mm').classList.toggle('active', mm === 58);
+    function setThermalWidth(mode) {
+      if (mode === 80) mode = '80';
+      if (mode === 58) mode = '58-scaled';
+      
+      thermalWidthMode = mode;
+      thermalWidthMm = (mode === '80') ? 80 : 58;
+
+      const btn80 = document.getElementById('btn-size-80mm');
+      const btn58Scaled = document.getElementById('btn-size-58mm-scaled');
+      const btn58 = document.getElementById('btn-size-58mm');
+      if (btn80) btn80.classList.toggle('active', mode === '80');
+      if (btn58Scaled) btn58Scaled.classList.toggle('active', mode === '58-scaled');
+      if (btn58) btn58.classList.toggle('active', mode === '58');
       
       const ticketRoot = document.getElementById('ticket-root');
-      if (mm === 58) {
-        ticketRoot.classList.add('size-58mm');
-        document.getElementById('badge-formato-ancho').textContent = '● Formato Térmico (58mm / 250px)';
-      } else {
+      if (mode === '58-scaled') {
         ticketRoot.classList.remove('size-58mm');
+        ticketRoot.classList.add('size-58mm-scaled');
+        document.getElementById('badge-formato-ancho').textContent = '● Formato Térmico (58mm Escalado Zoom)';
+        mostrarToast('Rollo térmico: 58 mm Escalado (Zoom)');
+      } else if (mode === '58') {
+        ticketRoot.classList.remove('size-58mm-scaled');
+        ticketRoot.classList.add('size-58mm');
+        document.getElementById('badge-formato-ancho').textContent = '● Formato Térmico (58mm Compacto / 250px)';
+        mostrarToast('Rollo térmico: 58 mm Compacto');
+      } else {
+        ticketRoot.classList.remove('size-58mm', 'size-58mm-scaled');
         document.getElementById('badge-formato-ancho').textContent = '● Formato Térmico (80mm / 320px)';
+        mostrarToast('Rollo térmico: 80 mm Estándar');
       }
-      mostrarToast(`Rollo térmico ajustado a ${mm} mm`);
     }
 
     // Cargar productos
@@ -1531,65 +1598,75 @@
       cambiarSucursalPreset();
     }
 
-    // Estimación de precios realistas de tiendas SIX / conveniencia
+    // Estimación de precios realistas de tiendas SIX / conveniencia por unidad individual
     function getRealisticProductPrice(desc) {
       const d = desc.toUpperCase();
 
-      // 1. Strongbow siempre $25.00 exactos (como en tienda)
+      // 1. STRONGBOW (todas las variedades $25.00 exactos)
       if (d.includes('STRONGBOW')) return { price: 25.00, fixed: true };
 
-      // 2. Canijilla y Ladrón de Manzanas $25.00 exactos
-      if (d.includes('CANIJILLA') || d.includes('LADRON DE MANZANAS')) return { price: 25.00, fixed: true };
+      // 2. CANIJILLA / LADRÓN DE MANZANAS / MANGO PICOSITO ($25.00 exactos)
+      if (d.includes('CANIJILLA') || d.includes('LADRON DE MANZANAS') || d.includes('MANGO PICOSITO') || d.includes('MANGO-PICOSITO') || d.includes('PICOSITO')) {
+        return { price: 25.00, fixed: true };
+      }
 
-      // 3. Miller High Life lata 16oz / casi medio litro (473ml / loose) $25.00 exactos
+      // 3. MILLER HIGH LIFE 16oz / 473ml ($25.00 exactos)
       if ((d.includes('MILLER HIGH LIFE') || d.includes('HIGH LIFE')) && (d.includes('16OZ') || d.includes('473ML') || d.includes('LOOSE') || d.includes('LAT'))) {
         return { price: 25.00, fixed: true };
       }
 
-      // 4. Six-Packs (4X6, 2X6, Fajilla, Hicone, Canastilla)
-      if (d.includes('4X6') || d.includes('2X6') || d.includes('HICONE') || d.includes('FAJILLA') || d.includes('CANAST')) {
-        if (d.includes('HEINEKEN') || d.includes('BOHEMIA') || d.includes('ULTRA') || d.includes('MINERVA') || d.includes('LAGUNITAS')) {
-          return { price: 132.00, fixed: false };
-        }
-        if (d.includes('CARTA BLANCA') || d.includes('SOL') || d.includes('KLOSTER')) {
-          return { price: 92.00, fixed: false };
-        }
-        return { price: 110.00, fixed: false }; // Tecate, Indio, XX, Coors Six-pack
-      }
-
-      // 5. Caguamón / Megas (1.18L, 32oz, 1000ml)
-      if (d.includes('1.18L') || d.includes('1000ML') || d.includes('32OZ')) {
+      // 4. Caguamón / Familiar / Mega (1.18L, 1.2L, 1000ml, 32oz)
+      if (d.includes('1.18L') || d.includes('1.2L') || d.includes('1000ML') || d.includes('32OZ')) {
         if (d.includes('CARTA BLANCA')) return { price: 44.00, fixed: false };
         return { price: 48.00, fixed: false };
       }
 
-      // 6. Caguama clásica (940ml)
-      if (d.includes('940ML')) return { price: 42.00, fixed: false };
+      // 5. Caguama clásica (940ml)
+      if (d.includes('940ML')) {
+        if (d.includes('CARTA BLANCA') || d.includes('SOL')) return { price: 40.00, fixed: false };
+        return { price: 42.00, fixed: false };
+      }
 
-      // 7. Latas 16oz / 473ml (casi medio litro / latón regular)
+      // 6. Mega Lata 24oz (710ml)
+      if (d.includes('24OZ')) {
+        if (d.includes('HEINEKEN') || d.includes('ULTRA')) return { price: 42.00, fixed: false };
+        return { price: 38.00, fixed: false };
+      }
+
+      // 7. Latas 16oz / 473ml (Medio litro / Loose 16oz)
       if (d.includes('16OZ') || d.includes('473ML') || d.includes('LOOSE 16')) {
         if (d.includes('HEINEKEN') || d.includes('ULTRA') || d.includes('BOHEMIA')) return { price: 30.00, fixed: false };
         if (d.includes('CARTA BLANCA') || d.includes('SOL')) return { price: 23.00, fixed: false };
         return { price: 26.00, fixed: false };
       }
 
-      // 8. Mega Lata 24oz (710ml)
-      if (d.includes('24OZ')) return { price: 38.00, fixed: false };
+      // 8. Cervezas Artesanales e Importadas (Affligem, Moretti, Minerva, Lagunitas, Jabalí)
+      if (d.includes('AFFLIGEM') || d.includes('MORETTI') || d.includes('MINERVA') || d.includes('LAGUNITAS') || d.includes('JABALI')) {
+        return { price: 38.00, fixed: false };
+      }
 
-      // 9. Caguamita / Ampolleta / Cuartito (190ml, 250ml, 237ml, 300ml, caguamita)
+      // 9. Caguamita / Ampolleta / Cuartito (190ml, 237ml, 250ml, 300ml, caguamita)
       if (d.includes('190ML') || d.includes('237ML') || d.includes('250ML') || d.includes('300ML') || d.includes('CAGUAMITA')) {
         return { price: 18.00, fixed: false };
       }
 
-      // 10. Latas y Botellas estándar 355ml
-      if (d.includes('HEINEKEN') || d.includes('BOHEMIA') || d.includes('ULTRA') || d.includes('MINERVA') || d.includes('LAGUNITAS') || d.includes('JABALI') || d.includes('AFFLIGEM')) {
-        return { price: 28.00, fixed: false };
-      }
-      if (d.includes('CARTA BLANCA') || d.includes('SOL')) {
-        return { price: 19.00, fixed: false };
+      // 10. Mezclas y Sabores (Clamato, Chelada, Mangorada, Radler)
+      if (d.includes('CLAMATO') || d.includes('CHELADA') || d.includes('RADLER') || d.includes('MANGORADA')) {
+        return { price: 25.00, fixed: false };
       }
 
-      return { price: 22.00, fixed: false }; // Tecate, Indio, XX regular 355ml
+      // 11. Línea Premium 355ml (Heineken, Ultra, Bohemia, Miller Lite, Coors)
+      if (d.includes('HEINEKEN') || d.includes('BOHEMIA') || d.includes('ULTRA') || d.includes('MILLER LITE') || d.includes('COORS')) {
+        return { price: 27.00, fixed: false };
+      }
+
+      // 12. Línea Económica 355ml (Sol, Sol Cero, Carta Blanca, Kloster, Superior)
+      if (d.includes('SOL') || d.includes('CARTA BLANCA') || d.includes('KLOSTER') || d.includes('SUPERIOR')) {
+        return { price: 22.00, fixed: false };
+      }
+
+      // 13. Línea Regular 355ml (Tecate, Tecate Light, Indio, XX Lager, XX Ambar, Tiger)
+      return { price: 24.00, fixed: false };
     }
 
     // Generar ticket completo con precios realistas
@@ -1609,13 +1686,11 @@
           const info = getRealisticProductPrice(desc);
           let cant = 1;
           if (info.fixed) {
-            cant = [2, 3, 4][randomInt(0, 2)]; // 2, 3 o 4 Strongbow / Miller 16oz a $25
-          } else if (info.price >= 90) {
-            cant = [1, 1, 2][randomInt(0, 2)]; // Six-packs
+            cant = [2, 3, 4][randomInt(0, 2)]; // 2, 3 o 4 Strongbow / Miller 16oz / Canijilla a $25
           } else if (info.price >= 40) {
-            cant = [1, 2, 2, 3][randomInt(0, 3)]; // Caguamas
+            cant = [1, 2, 2, 3][randomInt(0, 3)]; // Caguamones 1.18L / Megas
           } else {
-            cant = [2, 3, 4, 6][randomInt(0, 3)]; // Latas / Botellas
+            cant = [2, 3, 4, 6][randomInt(0, 3)]; // Latas y Botellas 355ml
           }
           const subtotal = Math.round(cant * info.price * 100) / 100;
           totalAcumulado += subtotal;
@@ -1660,12 +1735,12 @@
           });
         }
 
-        // Si la suma inicial supera targetTotal - 15, cambiar items caros por latas estándar ($22)
+        // Si la suma inicial supera targetTotal - 15, cambiar items caros por latas estándar ($24)
         let sumaActual = Math.round(renglones.reduce((acc, x) => acc + x.subtotal, 0) * 100) / 100;
         for (let r of renglones) {
-          if (sumaActual > targetTotal - 15 && !r.fixed && r.unit >= 50) {
-            r.unit = 22.00;
-            r.subtotal = 22.00;
+          if (sumaActual > targetTotal - 15 && !r.fixed && r.unit >= 40) {
+            r.unit = 24.00;
+            r.subtotal = 24.00;
             sumaActual = Math.round(renglones.reduce((acc, x) => acc + x.subtotal, 0) * 100) / 100;
           }
         }
